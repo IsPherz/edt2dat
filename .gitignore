@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+.venv/
+venv/
+exported/*
+!exported/.gitkeep
+*.dat.bak
+_smoke*
+.DS_Store
+Thumbs.db
