@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import threading
 import tkinter as tk
@@ -15,6 +16,7 @@ from .pipeline import npc_to_editdata
 # Same folder as Launch edt2dat.bat
 TOOL_DIR = Path(__file__).resolve().parent
 EXPORTED_DIR = TOOL_DIR / "exported"
+SETTINGS_PATH = TOOL_DIR / "settings.json"
 
 
 def _default_appdata_edit() -> Path:
@@ -74,6 +76,26 @@ def _default_out_path(npc_name: str) -> Path:
     return _ensure_exported() / f"{npc_name}_from_edt.dat"
 
 
+def _load_settings() -> dict:
+    if not SETTINGS_PATH.is_file():
+        return {}
+    try:
+        data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _save_settings(data: dict) -> None:
+    try:
+        SETTINGS_PATH.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+    except OSError:
+        pass
+
+
 class Edt2DatApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -84,21 +106,40 @@ class Edt2DatApp(tk.Tk):
         self._entries: tuple[NpcEntry, ...] = ()
         self._filtered: list[NpcEntry] = []
         self._busy = False
+        self._settings = _load_settings()
 
-        self.game_var = tk.StringVar(value=_default_game_folder())
-        self.arctool_var = tk.StringVar(value=str(default_arctool()))
+        game = str(self._settings.get("game_folder") or "").strip() or _default_game_folder()
+        arctool = str(self._settings.get("arctool") or "").strip() or str(default_arctool())
+        slot = str(self._settings.get("slot") or "")
+
+        self.game_var = tk.StringVar(value=game)
+        self.arctool_var = tk.StringVar(value=arctool)
         self.query_var = tk.StringVar()
         self.out_var = tk.StringVar(value=str(_ensure_exported() / "npc_from_edt.dat"))
-        self.slot_var = tk.StringVar(value="")
+        self.slot_var = tk.StringVar(value=slot)
         self.status_var = tk.StringVar(
             value="Confirm game folder + ARCtool, then Refresh NPC list."
         )
 
         self._build()
         self.query_var.trace_add("write", lambda *_: self._apply_filter())
+        self.game_var.trace_add("write", lambda *_: self._persist_settings())
+        self.arctool_var.trace_add("write", lambda *_: self._persist_settings())
+        self.slot_var.trace_add("write", lambda *_: self._persist_settings())
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         if self.game_var.get() and Path(self.game_var.get(), "nativePC", "rom", "npc").is_dir():
             self.after(100, self.refresh_list)
+
+    def _persist_settings(self) -> None:
+        self._settings["game_folder"] = self.game_var.get().strip()
+        self._settings["arctool"] = self.arctool_var.get().strip()
+        self._settings["slot"] = self.slot_var.get().strip()
+        _save_settings(self._settings)
+
+    def _on_close(self) -> None:
+        self._persist_settings()
+        self.destroy()
 
     def _build(self) -> None:
         pad = {"padx": 8, "pady": 4}

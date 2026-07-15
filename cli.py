@@ -38,7 +38,8 @@ def cmd_convert(args: argparse.Namespace) -> int:
     result = npc_to_editdata(
         args.game,
         args.npc,
-        display_name=args.name,
+        author=args.author,
+        comment=args.comment,
         arctool=args.arctool,
         write_comment=not args.no_comment,
         verbose=args.verbose,
@@ -117,7 +118,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Arrowgene enum name (e.g. Nedo0, Mysial0, AdairDonnchadh1) or numeric id",
     )
     p_c.add_argument("-o", "--output", type=Path, default=None, help="output .dat path")
-    p_c.add_argument("--name", default=None, help="display name written into .dat (default: enum)")
+    p_c.add_argument(
+        "--author",
+        default=None,
+        help="in-game Author column (default: yokaisparda)",
+    )
+    p_c.add_argument(
+        "--comment",
+        default=None,
+        help="in-game Comment column (default: Arrowgene NPC enum name)",
+    )
     p_c.add_argument(
         "--slot",
         type=int,
@@ -130,7 +140,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="edit folder (default: %%LOCALAPPDATA%%\\CAPCOM\\Dragon's Dogma Online\\edit)",
     )
-    p_c.add_argument("--no-comment", action="store_true")
+    p_c.add_argument(
+        "--no-comment",
+        action="store_true",
+        help="do not write Comment",
+    )
     p_c.add_argument("-v", "--verbose", action="store_true")
     p_c.set_defaults(func=cmd_convert)
 

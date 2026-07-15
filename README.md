@@ -38,10 +38,12 @@ ARCtool is owned by its original author(s); this project only calls it to unpack
 
 | Field | Default |
 |--------|---------|
-| Game folder | `%ProgramFiles(x86)%\Steam\steamapps\common\Dragon's Dogma Online` (from Windows env). Also tries `%USERPROFILE%\Games\Dragon's Dogma Online` and `%USERPROFILE%\Dragon's Dogma Online`. Browse if wrong. |
-| ARCtool.exe | `ARCtool.exe` in **this tool folder** (you supply it) |
+| Game folder | Last value from `settings.json` if present; else `%ProgramFiles(x86)%\Steam\steamapps\common\Dragon's Dogma Online` (from Windows env). Also tries `%USERPROFILE%\Games\…` / `%USERPROFILE%\Dragon's Dogma Online`. Browse if wrong. |
+| ARCtool.exe | Last from `settings.json`, else `ARCtool.exe` in **this tool folder** (you supply it) |
 | Save .dat | `exported\<NpcName>_from_edt.dat` (created next to the launch bat) |
-| AppData slot | **Current Windows user:** `%LOCALAPPDATA%\CAPCOM\Dragon's Dogma Online\edit\editdataN.dat` |
+| AppData slot | Last from `settings.json`, else empty. Installs to `%LOCALAPPDATA%\CAPCOM\Dragon's Dogma Online\edit\editdataN.dat` |
+
+The UI writes **`settings.json`** next to `Launch edt2dat.bat` whenever you change game folder, ARCtool, or slot (and again on close).
 
 ### Overwrite
 
@@ -72,6 +74,8 @@ python -m edt2dat convert --game "…" --npc Mysial0 --slot 9 -v
 | Topic | Rule |
 |-------|------|
 | Names | Arrowgene enum as-is (`AdairDonnchadh1`, `AdairDonnchadh2`, …) |
+| Author (load list) | Always `yokaisparda` (name @0x48) |
+| Comment (load list) | NPC enum name — written to nickname @0x88 **and** `Comment:` (UI reads @0x88) |
 | Multi-`.edt` in one arc | **First** (prefer `*_00`) |
 | No arc / no `.edt` | Omitted from refreshed list; convert errors clearly |
 | Sex | From `.edt` `@0x14` → male/female bundled template + `.dat` sex fields |

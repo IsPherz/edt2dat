@@ -14,3 +14,6 @@ Thumbs.db
 # Third-party — download separately (not owned by this project)
 ARCtool.exe
 ARCtool*.exe
+
+# GUI remembers game / ARCtool paths locally
+settings.json

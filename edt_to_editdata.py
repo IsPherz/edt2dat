@@ -7,12 +7,20 @@ Writes face H-31..H-1, body live slots, Eye/Nose/Mouth/Brow shape IDs
 Colors: Skin (0x48→H+0x38), Hair (0x4C→H+0x3C), Beard (0x50→H+0x40),
 Brow (0x54→H+0x44), Eyes (0x58/0x5C→H+0x48/0x4C), Makeup (0x60→H+0x50).
 Hair / beard / makeup *styles* are NOT written (UI↔file IDs unmapped; unsafe).
-Style colors (including makeup color) still transfer. Comment keeps A#### hair asset id.
+Style colors (including makeup color) still transfer.
+
+In-game load-slot list columns:
+  Author  = name @0x48 (and mid long name) — default \"yokaisparda\"
+  Comment = nickname @0x88 (and Comment: meta) — NPC enum name
+The ASCII Author: line at 0x2B68 is kept in sync with the Author column.
 """
 from __future__ import annotations
 
 import argparse
 import struct
+
+DEFAULT_AUTHOR = "yokaisparda"
+COMMENT_MAX_CHARS = 22
 from pathlib import Path
 
 MAGIC = b"EDT\x00"
@@ -261,15 +269,58 @@ def inject(edt: bytes, editdata: bytearray, *, verbose: bool = True) -> list[str
     return log
 
 
-def set_editdata_comment(editdata: bytearray, text: str) -> None:
-    """Write Comment after 'Comment:' only.
+def comment_from_name(name: str) -> str:
+    """Fit a display/NPC name into the Comment field (ascii, max COMMENT_MAX_CHARS)."""
+    raw = name.encode("ascii")
+    if len(raw) > COMMENT_MAX_CHARS:
+        return raw[:COMMENT_MAX_CHARS].decode("ascii")
+    return name
 
-    Do NOT write @0x88 — that slot is a short nickname (e.g. \"Laios\"), not the
-    preset code. Stuffing E33N… there corrupts the male mid/UI layout.
+
+def _fit_c_field(raw: bytes, field_len: int) -> bytes:
+    """Pad/truncate so C-string width stays field_len (keeps mHair / Height)."""
+    if field_len <= 0:
+        return b""
+    if len(raw) >= field_len:
+        return raw[:field_len]
+    return raw + b" " * (field_len - len(raw))
+
+
+def _c_field_len(editdata: bytearray, start: int, max_len: int = 32) -> int:
+    end = start
+    while end < start + max_len and editdata[end] != 0:
+        end += 1
+    return end - start
+
+
+def set_editdata_comment(editdata: bytearray, text: str) -> None:
+    """Write in-game Comment column: nickname @0x88 + Comment: meta (+ mid short name).
+
+    The load-slot UI reads Comment from @0x88 (not only the Comment: string).
+    Field widths are preserved so Height / morphs do not shift.
     """
     raw = text.encode("ascii")
-    if len(raw) > 22:
-        raise ValueError(f"comment longer than 22 chars: {text!r}")
+    if len(raw) > COMMENT_MAX_CHARS:
+        raise ValueError(f"comment longer than {COMMENT_MAX_CHARS} chars: {text!r}")
+
+    # @0x88 — this is what the load list Comment column shows
+    early = 0x88
+    e_len = _c_field_len(editdata, early)
+    if e_len <= 0:
+        e_len = min(max(len(raw), 1), 15)
+    editdata[early : early + e_len] = _fit_c_field(raw, e_len)
+
+    # Mid short name (after long name), when present and not Male/Female
+    mid = 0x138
+    old_len = _c_field_len(editdata, mid, 64)
+    if old_len > 0:
+        p = mid + old_len + 1
+        if not (
+            editdata[p : p + 6] == b"Female" or editdata[p : p + 4] == b"Male"
+        ) and p < mid + 64 and editdata[p] != 0:
+            s_len = _c_field_len(editdata, p, mid + 64 - p)
+            editdata[p : p + s_len] = _fit_c_field(raw, s_len)
+
     label = editdata.find(b"Comment:")
     if label < 0:
         raise ValueError("Comment: label not found in editdata")
@@ -279,11 +330,10 @@ def set_editdata_comment(editdata: bytearray, text: str) -> None:
 
 
 def set_editdata_name(editdata: bytearray, name: str) -> None:
-    """Overwrite display name @0x48, mid long name, mid short name, and @0x88 nickname.
+    """Overwrite in-game Author column: name @0x48 + mid long name.
 
-    Preserves existing field widths so Height / morph alignment does not shift.
-    Does not invent a \"Male\" mid word — keep the template's layout (e1-style
-    short-name vs e6-style Male/Female).
+    Does not touch @0x88 / mid short name — those feed the Comment column.
+    Preserves mid long-name width so Height / morph alignment does not shift.
     """
     raw = name.encode("ascii")
     if len(raw) > 31:
@@ -291,45 +341,13 @@ def set_editdata_name(editdata: bytearray, name: str) -> None:
     editdata[0x48 : 0x48 + 32] = b"\x00" * 32
     editdata[0x48 : 0x48 + len(raw)] = raw
 
-    def _fit(field_len: int) -> bytes:
-        """Pad with spaces so C-string length stays field_len (keeps mHair / Height)."""
-        if field_len <= 0:
-            return b""
-        if len(raw) >= field_len:
-            return raw[:field_len]
-        return raw + b" " * (field_len - len(raw))
-
-    # @0x88 short nickname (keep existing field width up to first NUL)
-    early = 0x88
-    e_end = early
-    while e_end < early + 32 and editdata[e_end] != 0:
-        e_end += 1
-    e_len = e_end - early
-    if e_len <= 0:
-        e_len = min(len(raw), 15)
-    editdata[early : early + e_len] = _fit(e_len)
-
     mid = 0x138
-    end = mid
-    while end < mid + 64 and editdata[end] != 0:
-        end += 1
-    old_len = end - mid
+    old_len = _c_field_len(editdata, mid, 64)
     if old_len <= 0:
         editdata[mid : mid + len(raw)] = raw
         editdata[mid + len(raw)] = 0
         return
-    editdata[mid : mid + old_len] = _fit(old_len)
-
-    # Second C-string after long name — short name on e1; skip if Male/Female
-    p = mid + old_len + 1
-    if editdata[p : p + 6] == b"Female" or editdata[p : p + 4] == b"Male":
-        return
-    if p < mid + 64 and editdata[p] != 0:
-        s_end = p
-        while s_end < mid + 64 and editdata[s_end] != 0:
-            s_end += 1
-        s_len = s_end - p
-        editdata[p : p + s_len] = _fit(s_len)
+    editdata[mid : mid + old_len] = _fit_c_field(raw, old_len)
 
 
 def set_editdata_gender(editdata: bytearray, gender: str, *, author: str | None = None) -> None:
@@ -390,12 +408,19 @@ def translate(
     edt: bytes,
     template: bytes,
     *,
+    author: str | None = None,
+    comment: str | None = None,
     name: str | None = None,
     gender: str | None = None,
     write_comment: bool = True,
     verbose: bool = True,
 ) -> tuple[bytearray, list[str]]:
-    """Inject .edt into a copy of template editdata. Returns (dat, log lines)."""
+    """Inject .edt into a copy of template editdata. Returns (dat, log lines).
+
+    ``author`` fills the Author column (name @0x48); default yokaisparda.
+    ``comment`` fills the Comment column (@0x88 + Comment:). Legacy ``name`` is
+    treated as ``comment`` when ``comment`` is omitted.
+    """
     dat = bytearray(template)
     log = inject(edt, dat, verbose=verbose)
     sex = gender if gender is not None else gender_from_edt(edt)
@@ -403,19 +428,20 @@ def translate(
     set_editdata_gender_flags(dat, sex)
     log.append(f"  Sex flag @0x110              -> {sex}")
 
-    if name:
-        set_editdata_name(dat, name)
-        log.append(f"  Name                          -> {name}")
+    author_text = author if author is not None else DEFAULT_AUTHOR
+    comment_text = comment if comment is not None else name
 
-    set_editdata_gender(dat, sex, author=name)
+    set_editdata_name(dat, author_text)
+    log.append(f"  Author (@0x48)                -> {author_text}")
+
+    set_editdata_gender(dat, sex, author=author_text)
     log.append(f"  Gender text                   -> {sex}  (edt 0x14={edt_gender_byte(edt)})")
-    if name:
-        log.append(f"  Author                        -> {name}")
+    log.append(f"  Author: meta                  -> {author_text}")
 
-    if write_comment:
-        code = preset_comment(edt)
+    if write_comment and comment_text:
+        code = comment_from_name(comment_text)
         set_editdata_comment(dat, code)
-        log.append(f"  Comment                       -> {code}")
+        log.append(f"  Comment (@0x88 + meta)        -> {code}")
 
     set_editdata_gender_flags(dat, sex)
     return dat, log
@@ -431,7 +457,18 @@ def main() -> None:
     )
     ap.add_argument("-o", "--output", type=Path, required=True)
     ap.add_argument("-q", "--quiet", action="store_true")
-    ap.add_argument("--name", type=str, default=None, help="slot display name")
+    ap.add_argument(
+        "--author",
+        type=str,
+        default=None,
+        help=f"in-game Author column / name @0x48 (default: {DEFAULT_AUTHOR})",
+    )
+    ap.add_argument(
+        "--comment",
+        type=str,
+        default=None,
+        help="in-game Comment column (NPC label, etc.)",
+    )
     ap.add_argument(
         "--gender",
         type=str,
@@ -441,7 +478,7 @@ def main() -> None:
     ap.add_argument(
         "--no-comment",
         action="store_true",
-        help="do not overwrite Comment with E/N/M/B code",
+        help="do not write Comment",
     )
     args = ap.parse_args()
 
@@ -449,7 +486,8 @@ def main() -> None:
     dat, log = translate(
         edt,
         args.editdata.read_bytes(),
-        name=args.name,
+        author=args.author,
+        comment=args.comment,
         gender=args.gender,
         write_comment=not args.no_comment,
         verbose=not args.quiet,
@@ -467,7 +505,9 @@ def main() -> None:
         eye, nose, mouth, brow = edt_shape_ids(edt)
         t = h - 4 * 31
         got = struct.unpack_from("<IIII", dat, t - 16)
-        print(f"Preset Comment code: {preset_comment(edt)}")
+        if args.comment:
+            print(f"Comment: {comment_from_name(args.comment)}")
+        print(f"Legacy shape tag (unused): {preset_comment(edt)}")
         print(
             f"  Shapes .edt file/UI: Eye={eye}/{eye+1} Nose={nose}/{nose+1} "
             f"Mouth={mouth}/{mouth+1} Brow={brow}/{brow+1}"
