@@ -15,8 +15,13 @@ _DEFAULT_ARCTOOL = _TOOL_DIR / "ARCtool.exe"
 
 
 def default_arctool() -> Path:
-    """ARCtool.exe shipped next to this tool (same folder as the launch bat)."""
+    """Expected local path: ARCtool.exe next to this tool (user-supplied)."""
     return _DEFAULT_ARCTOOL
+
+
+ARCTOOL_DOWNLOAD = (
+    "https://residentevilmodding.boards.net/thread/481/arc-unpacker-repacker-v0-428"
+)
 
 
 def _rank_edt(path: Path) -> tuple[int, str]:
@@ -42,7 +47,8 @@ def unpack_arc(arc: Path, dest: Path, *, arctool: Path | None = None) -> Path:
     if not tool.is_file():
         raise FileNotFoundError(
             f"ARCtool not found: {tool}\n"
-            f"Place ARCtool.exe in: {_TOOL_DIR}"
+            f"Download ARCtool (third-party) and place ARCtool.exe in:\n{_TOOL_DIR}\n"
+            f"{ARCTOOL_DOWNLOAD}"
         )
     if not arc.is_file():
         raise FileNotFoundError(f"NPC arc not found: {arc}")

@@ -10,21 +10,25 @@ Keep the release folder named **`edt2dat`** (required for `python -m edt2dat`).
 
 - Windows + **Python 3.10+** on `PATH`
 - DDON client with `nativePC\rom\npc\nXXXX.arc`
-- **`ARCtool.exe`** in this folder (same place as `Launch edt2dat.bat`) — the `.exe` only, not a `.bat`
-- Bundled files already present: `data/templates/`, `data/npc_ids.json`
+- **ARCtool** (third-party — **not** bundled here). Download from the author’s thread:  
+  **[ARC Unpacker/Repacker](https://residentevilmodding.boards.net/thread/481/arc-unpacker-repacker-v0-428)**  
+  Use **`ARCtool.exe`** only (not a `.bat`). Put it in this folder next to `Launch edt2dat.bat`, or Browse to it in the UI.
+- Bundled with this repo: `data/templates/`, `data/npc_ids.json`
+
+ARCtool is owned by its original author(s); this project only calls it to unpack NPC `.arc` files.
 
 ---
 
 ## Windowed UI (recommended)
 
-1. Put `ARCtool.exe` next to `Launch edt2dat.bat` if it is not already there  
+1. Download **ARCtool** from the link above and place `ARCtool.exe` next to `Launch edt2dat.bat`  
 2. Double-click **`Launch edt2dat.bat`**  
    (or from the **parent** of this folder: `python -m edt2dat`)
 
 ### Steps in the window
 
 1. **Game folder** — DDON root that contains `nativePC`  
-2. **ARCtool.exe** — Browse if needed  
+2. **ARCtool.exe** — Browse if it is not in this folder  
 3. **Refresh NPC list** — search / pick enum name (e.g. `AdairDonnchadh1`, `Nedo0`)  
 4. **Save .dat as…**  
 5. Optional **AppData slot** `0–20`  
@@ -35,7 +39,7 @@ Keep the release folder named **`edt2dat`** (required for `python -m edt2dat`).
 | Field | Default |
 |--------|---------|
 | Game folder | `%ProgramFiles(x86)%\Steam\steamapps\common\Dragon's Dogma Online` (from Windows env). Also tries `%USERPROFILE%\Games\Dragon's Dogma Online` and `%USERPROFILE%\Dragon's Dogma Online`. Browse if wrong. |
-| ARCtool.exe | `ARCtool.exe` in **this tool folder** |
+| ARCtool.exe | `ARCtool.exe` in **this tool folder** (you supply it) |
 | Save .dat | `exported\<NpcName>_from_edt.dat` (created next to the launch bat) |
 | AppData slot | **Current Windows user:** `%LOCALAPPDATA%\CAPCOM\Dragon's Dogma Online\edit\editdataN.dat` |
 
@@ -73,7 +77,7 @@ python -m edt2dat convert --game "…" --npc Mysial0 --slot 9 -v
 | Sex | From `.edt` `@0x14` → male/female bundled template + `.dat` sex fields |
 | Hair / beard / makeup **styles** | Left on template (colors still map) |
 | Stance | Left on template (no live NPC `.edt` source yet) |
-| ARCtool | Direct `.exe` with `-ddo -texRE6 -alwayscomp -pc -txt -v 7` |
+| ARCtool | User-provided `.exe`; invoked with `-ddo -texRE6 -alwayscomp -pc -txt -v 7` |
 
 ---
 
@@ -82,7 +86,7 @@ python -m edt2dat convert --game "…" --npc Mysial0 --slot 9 -v
 ```
 edt2dat/
   Launch edt2dat.bat
-  ARCtool.exe              # place here for end users
+  ARCtool.exe              # NOT in git — download (see Requirements)
   exported/                # default .dat output
   gui.py                   # Tk UI
   cli.py                   # list / convert / gui
@@ -137,18 +141,12 @@ Keep enum names exact (including `0` / `1` suffixes).
 
 ### Morph maps
 
-Edit **`edt_to_editdata.py`** inside this package (`BODY_H_POS`, `FACE_H_NEG`, `translate`). Research notes for confirmed `.edt` offsets live with your internal experiment docs if you maintain them separately — they are not required to run the tool.
+Edit **`edt_to_editdata.py`** inside this package (`BODY_H_POS`, `FACE_H_NEG`, `translate`).
 
 ### Sharing a zip
 
-Ship the whole **`edt2dat`** folder (keep that name), including:
-
-- `ARCtool.exe`
-- `data/`
-- `exported/` (can be empty)
-- `Launch edt2dat.bat`
-
-Users need Python installed unless you later freeze with PyInstaller.
+Ship the **`edt2dat`** folder (keep that name), including `data/`, `exported/`, and `Launch edt2dat.bat`.  
+**Do not** redistribute `ARCtool.exe` — link users to the download thread in Requirements.
 
 ### Smoke checks
 

@@ -10,3 +10,7 @@ exported/*
 _smoke*
 .DS_Store
 Thumbs.db
+
+# Third-party — download separately (not owned by this project)
+ARCtool.exe
+ARCtool*.exe

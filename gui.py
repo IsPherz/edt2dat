@@ -9,7 +9,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from .catalog import NpcEntry, with_arc_on_disk
-from .extract import default_arctool
+from .extract import ARCTOOL_DOWNLOAD, default_arctool
 from .pipeline import npc_to_editdata
 
 # Same folder as Launch edt2dat.bat
@@ -258,7 +258,9 @@ class Edt2DatApp(tk.Tk):
             messagebox.showerror(
                 "ARCtool",
                 f"ARCtool.exe not found:\n{arctool}\n\n"
-                f"Place ARCtool.exe in:\n{TOOL_DIR}\n"
+                "ARCtool is a third-party tool (not included here).\n"
+                f"Download it from:\n{ARCTOOL_DOWNLOAD}\n\n"
+                f"Then place ARCtool.exe in:\n{TOOL_DIR}\n"
                 "or Browse to it.",
             )
             return
