@@ -161,3 +161,10 @@ python -m edt2dat convert --game "…" --npc Mysial0 -o edt2dat\exported\_smoke.
 ```
 
 Expect sex **Female**, file size ~23840 bytes, and a Chest line in the verbose morph log.
+
+---
+
+## Related
+
+Pre-generated presets for all convertible NPCs: [ddon-npc-editdata](https://github.com/IsPherz/ddon-npc-editdata).
+
